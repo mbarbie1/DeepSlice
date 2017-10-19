@@ -17,11 +17,16 @@ end
 
 figure;el=1;imagesc(poly2mask(ROI{el}(:,1),ROI{el}(:,2),30000,30000))
 
+%% Or using lib to read roi files directly.
+files=dir ('./meta/*.roi');
+for i=1:length(files)
+    roi{i} = ReadImageJROI(['meta/' files(i).name]);
+    ROI{i} = roi{i}.mnCoordinates;
+    roinames{i} = files(i).name;
+end
 
 %% Read the data:
 f=imread('B21-1_c1_ORG.tif');
-
-
 %% Store picture as matlab format file:
 save('picture.mat','f','-v7.3'); % -v7.3 to support partial loading
 %% map mat file
@@ -29,7 +34,7 @@ pict=matfile('picture.mat');
 %%
 figure;el=1;imagesc(poly2mask(ROI{el}(:,1),ROI{el}(:,2),30000,30000))
 
-% scale down image:
+% Scale down image:
 srcImage=f(1:64:size(f,1),(1:64:size(f,2)));
 for i=1:length(roinames)
     ROI{i}=ROI{i}./1;
@@ -39,12 +44,21 @@ end
 figure;
 image(srcImage/3);
 hold on;
-for i=1:length(files)
-    x=ROI{i}(:,2);
-    y=ROI{i}(:,1);
+for i=1:length(ROI)
+    x=ROI{i}(:,1)/1.25;
+    y=ROI{i}(:,2)/1.25;
     plot([x; x(1)],[y; y(1)]);
     hold on;
 end
+
+
+%% Create masks:
+for i=1:length(ROI)
+    mask{i}=poly2mask(ROI{i}(:,1)/1.25,ROI{i}(:,2)/1.25,size(f,1),size(f,2));
+end
+%%
+save('mask.mat','mask','-v7.3'); % -v7.3 to support partial loading
+
 %%
 for i=1:length(files)
     vx{i}=ROI{i}(:,1)-circshift(ROI{i}(:,1),1);
