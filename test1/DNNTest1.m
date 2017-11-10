@@ -26,7 +26,7 @@ for i=1:length(files)
 end
 
 %% Read the data:
-f=imread('B21-1_c1_ORG.tif');
+f=imread('B21-1_c4_ORG.tif');
 %% Store picture as matlab format file:
 save('picture.mat','f','-v7.3'); % -v7.3 to support partial loading
 %% map mat file
@@ -97,3 +97,6 @@ end
 
 
 figure; imagesc(reshape(do,size(srcImage,1),[]))
+
+
+%% Create Datastore for big data:
