@@ -1,3 +1,8 @@
+# Ignore the external libraries
+external_libraries/
+# Ignore hdf5 files
+*.h5
+
 *.i
 *.ii
 *.gpu
