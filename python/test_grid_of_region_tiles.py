@@ -4,6 +4,7 @@
 """
     test_load_hdf5.py
 """
+from __future__ import division
 
 """ Clear all variables """
 from IPython import get_ipython
@@ -13,6 +14,8 @@ get_ipython().magic('reset -sf')
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
+from cycler import cycler
 
 from shapely.geometry.polygon import LinearRing
 from shapely.geometry import Polygon
@@ -28,6 +31,10 @@ from shapely.geometry import Point
 #from read_roi import read_roi_file
 #from read_roi import read_roi_zip
 from ijroi import read_roi_zip
+
+
+def defaultColor():
+    return '#000000'
 
 
 def openHdf5ImageFirst( filePath ):
@@ -66,14 +73,16 @@ def loadRegionsAsPolygon( filePath ):
 
     return rois
 
+
 def doesRegionContainsPoint( polygon, point ):
     """
-        Point in region
+    Check whether a Point is inside a region --> Polygon ("shapely.geometry.Polygon")
     """
     if ( polygon.contains( point ) ):
         return True
     else:
         return False
+
 
 def doRegionsOverlap( polygon1, polygon2 ):
     """
@@ -85,7 +94,7 @@ def doRegionsOverlap( polygon1, polygon2 ):
 
 def intersectRegions( polygon1, polygon2 ):
     """
-    Intersect 2 regions
+    Intersect 2 regions and return the intersecting Polygon ("shapely.geometry.Polygon")
     """
     polygonIntersection = polygon1.intersection(polygon2)
     return polygonIntersection
@@ -109,22 +118,45 @@ def intersectTileWithRegion( x0, y0, w, h, polygon ):
     return intersectRegions( tile, polygon )
 
 
-def showRegionsAndPolygon( rois, polygon, nFig):
+def showRegions( rois, nFig ):
+    """
+    shows the regions and returns the matplotlib axes
+    """
     fig = plt.figure(nFig, dpi=90)
     plt.axis('equal')
+    ax = fig.add_subplot(111)
     for key in rois.keys():
         xy = rois[key]
         region = Polygon( xy )
-        ax = fig.add_subplot(111)
         x, y = region.exterior.xy
         plt.plot(x, y)
+    return fig, ax
+
+
+def addPolygonToPlot( polygon, color, ax ):
+    """
+    Add a polygon to a plot with axes ax
+    """
     x, y = polygon.exterior.xy
-    plt.plot(x, y)
+    ax.plot(x, y, color = color, alpha=0.7, linewidth=1, solid_capstyle='round', zorder=2)
+    return
+
+
+def showRegionsAndPolygon( rois, polygon, nFig):
+    """
+    Show an image with the regions and a polygon in the nFig figure
+    """
+    fig, ax = showRegions( rois, nFig )
+    color = '#334455'
+    addPolygonToPlot( polygon, color, ax )
     plt.show()
     return
 
 
 def showRegionsAndTile( rois, xTile, yTile, wTile, hTile, nFig ):
+    """
+    Show an image with the regions and a tile in the nFig figure
+    """
     polygon = tilePolygon( xTile, yTile, wTile, hTile )
     showRegionsAndPolygon( rois, polygon, nFig )
     return
@@ -132,25 +164,39 @@ def showRegionsAndTile( rois, xTile, yTile, wTile, hTile, nFig ):
 
 def gridRegionTilesWindow( x0, y0, xe, ye, wTile, hTile, polygon):
     """
-    Returns a dictionary with for each region a list of tile which are inside the region (polygon)
+    Returns a dictionary with for each region a list of tiles which are inside the region (polygon) and originating from a subregion (of the total image)
     """
     tileList = list()
     for x in range(x0, xe, wTile):
         for y in range(y0, ye, hTile):
-            print( "x = " + str(x) + ", y = " + str(y) )
+            #print( "x = " + str(x) + ", y = " + str(y) )
             tile = tilePolygon( x, y, wTile, hTile )
             if (doRegionsOverlap( tile, polygon )):
                 tileList.append( tile )
     return tileList
 
+"""
+def gridRegionTilesList( minimumOverlap ):
+    ""
+    Returns a list of all the tiles in a grid and for each tile the list of region to which they have overlap
+    ""
+    gridMap = {}
+    listTiles = 
+    for roiName in rois.keys():
+        xy = rois[key]
+        region = Polygon( xy )
+        tileList = gridRegionTilesWindow( 0, 0, w, h, wTile, hTile, region )
+        gridMap[roiName] = tileList
+    return gridMap
+""" 
 
 def gridRegionTiles( w, h, wTile, hTile, rois ):
     """
-    Returns a dictionary with for each region a list of tile which are inside the region
+    Returns a dictionary with for each region a list of tiles which are inside the region
     """
     gridMap = {}
     for roiName in rois.keys():
-        xy = rois[key]
+        xy = rois[roiName]
         region = Polygon( xy )
         tileList = gridRegionTilesWindow( 0, 0, w, h, wTile, hTile, region )
         gridMap[roiName] = tileList
@@ -169,11 +215,14 @@ def gridRegionTiles( w, h, wTile, hTile, rois ):
 """
 
 
-#print(polygon.contains(point))
+# Color definition
+#colors = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
 
+# Load the regions
 rois = loadRegions('/data/mbarbier/external/axioscan_jnj/B31/large_rois/B31-01.zip')
 roisPoly = loadRegionsAsPolygon('/data/mbarbier/external/axioscan_jnj/B31/large_rois/B31-01.zip')
 
+"""
 fig1 = plt.figure(1, dpi=90)
 plt.axis('equal')
 for key in rois.keys():
@@ -225,14 +274,20 @@ hTile = 23
 gridRegionTilesWindow( x0, y0, xe, ye, wTile, hTile, roisPoly["mb"])
 
 showRegionsAndTile( rois, 10, 20, 3000, 5000, 4 )
-
+"""
 w = 20000
 h = 30000
 wTile = 1500
 hTile = 1500
 gridMap = gridRegionTiles( w, h, wTile, hTile, rois )
-for i in range(5,7):
-    showRegionsAndPolygon( rois, gridMap['bs'][i], i )
+fig, ax = showRegions( rois, 5 )
+nTiles = len(gridMap['mb'])
+for i in range( 1, nTiles ):
+    # 2. Define prop cycle for single set of axes
+    #ax.set_prop_cycle( cycler('color', ['c', 'm', 'y', 'k']) )
+    polygon = gridMap['mb'][i]
+    color = (i/nTiles, 1 - i/nTiles,i/nTiles)
+    addPolygonToPlot( polygon, color, ax )
 
 
 """
