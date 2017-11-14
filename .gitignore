@@ -1,5 +1,7 @@
 # Ignore the external libraries
 external_libraries/
+# Ignore the data folder
+data/
 # Ignore hdf5 files
 *.h5
 
