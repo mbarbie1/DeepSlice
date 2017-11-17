@@ -271,6 +271,56 @@ plt.imshow( masksExtended["mb"], cmap='gray' )
 """ Setting up the network """
 """ ----------------------------------------------------------------------- """
 
+def nn( nPixels ):
+    """
+    
+    """
+    nClasses = 1
+    nOut = nPixels * nClasses
+    x = tf.placeholder( tf.float32, [None, nPixels])
+    W = tf.Variable( tf.truncated_normal([nPixels, nOut], stddev=0.1) )
+    b = tf.Variable( tf.constant(0.1, shape=[nOut]) )
+    y = tf.matmul( x, W) + b
+    # Predicted y
+    y_ = tf.placeholder(tf.float32, [None, nOut])
+    # Cost is defined by the cross-entropy between predicted and real y
+    cost = tf.reduce_mean(
+        tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
+    # Optimizer minimizes the cost
+    optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(cost)
+    init = tf.global_variables_initializer()
+
+    return optimizer, init, cost, W, b
+
+
+def train( nPixels, W, b, optimizer, init, cost, train_X, train_Y, training_epochs, display_step ):
+    # tf Graph Input
+    X = tf.placeholder(tf.float32, [None, nPixels])
+    Y = tf.placeholder(tf.float32, [None, nPixels])
+    # Start training
+    with tf.Session() as sess:
+
+        # Run the initializer
+        sess.run(init)
+        
+        print( X.shape )
+        print( train_X.shape )
+
+        # Fit all training data
+        for epoch in range(training_epochs):
+            for (x, y) in zip(train_X, train_Y):
+                sess.run( optimizer, feed_dict={X: x, Y: y})
+
+            # Display logs per epoch step
+            if (epoch+1) % display_step == 0:
+                c = sess.run(cost, feed_dict={X: train_X, Y:train_Y})
+                print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(c), \
+                    "W=", sess.run(W), "b=", sess.run(b))
+
+        print("Optimization Finished!")
+        training_cost = sess.run(cost, feed_dict={X: train_X, Y: train_Y})
+        print("Training cost=", training_cost, "W=", sess.run(W), "b=", sess.run(b), '\n')
+
 # Interactive session vs normal?
 sess = tf.InteractiveSession()
 
@@ -278,8 +328,12 @@ sess = tf.InteractiveSession()
 """ ----------------------------------------------------------------------- """
 """ Loading data """
 """ ----------------------------------------------------------------------- """
-features1 = np.reshape( imExtended, (-1) )
-labels1 = np.reshape( masksExtended["cb"], (-1) )
+
+nPixels = imExtended.shape[0] * imExtended.shape[1]
+features1 = np.reshape( imExtended, (1,nPixels) )
+features2 = np.reshape( imExtended, (1,nPixels) )
+labels1 = np.reshape( masksExtended["cb"], (1,nPixels) )
+labels2 = np.reshape( masksExtended["cb"], (1,nPixels) )
 
 features = features1
 labels = labels1
@@ -287,37 +341,25 @@ labels = labels1
 # Assume that each row of `features` corresponds to the same row as `labels`.
 assert features.shape[0] == labels.shape[0]
 
-features_placeholder = tf.placeholder(features.dtype, features.shape)
-labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
+#features_placeholder = tf.placeholder(features.dtype, features.shape)
+#labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
 
-dataset = tf.contrib.data.Dataset.from_tensor_slices((features_placeholder, labels_placeholder))
-## [Other transformations on `dataset`...]
-## dataset = ...
-#iterator = dataset.make_initializable_iterator()
-iterator = dataset.dataset.make_one_shot_iterator()
+#dataset = tf.contrib.data.Dataset.from_tensor_slices((features_placeholder, labels_placeholder))
+### [Other transformations on `dataset`...]
+### dataset = ...
+##iterator = dataset.make_initializable_iterator()
+#iterator = dataset.dataset.make_one_shot_iterator()
 
-sess.run( iterator.initializer, feed_dict={features_placeholder: features,
-    labels_placeholder: labels})
+#sess.run( iterator.initializer, feed_dict={features_placeholder: features,
+#    labels_placeholder: labels})
 """ ----------------------------------------------------------------------- """
 
+
 nPixels = labels.shape[0]
-nClasses = 1
-nBatch = 10
-nIteration = 20
-nOut = nPixels * nClasses
-x = tf.placeholder( tf.float32, [None, nPixels])
-W = tf.Variable( tf.truncated_normal([nPixels, nOut], stddev=0.1) )
-b = tf.Variable( tf.constant(0.1, shape=[nOut]) )
-y = tf.matmul( x, W) + b
-
-
-# Define loss and optimizer
-y_ = tf.placeholder(tf.float32, [None, nOut])
-cross_entropy = tf.reduce_mean(
-    tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
-train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
-
-tf.global_variables_initializer().run()
+optimizer, init, cost, W, b = nn( nPixels )
+training_epochs = 5
+display_step = 1
+train( nPixels, W, b, optimizer, init, cost, features, labels, training_epochs, display_step )
 
 
 
