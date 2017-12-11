@@ -215,7 +215,7 @@ def extendRegions( rois, sizeResized, sizeOri ):
         newRois[key][xyKey()] = rois[key][xyKey()] + shift
         #rois[key] = shapely.affinity.translate( roi , xoff=newOrigin[0], yoff=newOrigin[1], zoff=0.0)
     return newRois
-        
+
 def convertRegionsToMasks( rois, im ):
     masks = {}    
     for key in rois.keys():
@@ -224,47 +224,36 @@ def convertRegionsToMasks( rois, im ):
         masks[key] = mask
     return masks
 
-#def loadImages( folderPath, imageFormat ):
+def imageIdFromFileName( imagePath ):
+    """
+    TODO
+    """
+    imageId = "fakeID"    
+    return imageId
 
-imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+def loadImages( imageFolder, imageFormat, contains ):
+    imagePathList = findFiles( imageFolder, imageFormat, contains )
+    sizeList = imageSizeList( imagePathList )
+    maxWidth, maxHeight = maxImageSize( sizeList )
+    side = max( maxWidth, maxHeight )
+    imageList = {}
+    roisList = {}
+    for imagePath in imagePathList:
+        image, rois = loadLabeledImage( imagePath, roisPath, imageId )
+        roisList[imageId] = rois
+        imageList[imageId] = image
 
-imagePathList = findFiles( imageFolder, "png", "" )
-sizeList = imageSizeList( imagePathList )
-maxWidth, maxHeight = maxImageSize( sizeList )
-side = max( maxWidth, maxHeight )
+def preLoadLabeledImages( imageFolder, imageFormat, contains ):
+    """
+    List all image paths and sizes and rois but do not load the images into memory    
+    Open images but don't load into memory
+    """
+    imagePathList = findFiles( imageFolder, imageFormat, contains )
+    sizeList = imageSizeList( imagePathList )
+    maxWidth, maxHeight = maxImageSize( sizeList )
+    side = max( maxWidth, maxHeight )
+    return imagePathList, roisList
 
-imageId =  "B31-02"
-imageFormat = "png"
-
-rois = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
-roisPoly = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
-
-image = loadImage( imageFolder + "/" + imageId + "." + imageFormat )
-
-
-#Scale the image and Rois
-binning = 64
-scale = 1.0 / float(binning)
-image = gaussian(image, sigma=(1.0/scale)/2.0)
-image_downscaled = downscale_local_mean(image, (binning, binning))
-for key in rois.keys():
-    rois[key]["xy"] = rois[key]["xy"] * scale
-img = Image.fromarray(image_downscaled)
-
-
-imgExtended = extendImagePillow( img, int( round( scale * side ) ) )
-im = array( img )
-imExtended = extendImageNumpy( im, int( round( scale * side ) ) )
-regionsExtended = extendRegions( rois, ( scale * side, scale * side ), img.size )
-#fig1 = plt.figure(1, dpi=90)
-#plt.imshow( array(imExtended) )
-showOverlayRegions( imExtended, regionsExtended, 5 )
-
-masksExtended = convertRegionsToMasks( regionsExtended, imExtended )
-
-fig2 = plt.figure(2, dpi=90)
-plt.imshow( masksExtended["mb"], cmap='gray' )
 
 
 """ ----------------------------------------------------------------------- """
@@ -325,18 +314,72 @@ def train( nPixels, W, b, optimizer, init, cost, train_X, train_Y, training_epoc
 sess = tf.InteractiveSession()
 
 
+
 """ ----------------------------------------------------------------------- """
 """ Loading data """
 """ ----------------------------------------------------------------------- """
 
-nPixels = imExtended.shape[0] * imExtended.shape[1]
-features1 = np.reshape( imExtended, (1,nPixels) )
-features2 = np.reshape( imExtended, (1,nPixels) )
-labels1 = np.reshape( masksExtended["cb"], (1,nPixels) )
-labels2 = np.reshape( masksExtended["cb"], (1,nPixels) )
+imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
 
-features = features1
-labels = labels1
+    
+
+imagePathList = findFiles( imageFolder, "png", "" )
+sizeList = imageSizeList( imagePathList )
+maxWidth, maxHeight = maxImageSize( sizeList )
+side = max( maxWidth, maxHeight )
+binning = 64
+scale = 1.0 / float(binning)
+scaledSide = int( round( scale * side ) )
+nPixels = scaledSide**2
+imageFormat = "png"
+
+imagePathList
+imageIdList = list( map( lambda x: os.path.splitext(os.path.basename(x))[0], imagePathList ) )
+
+#imageId =  "B31-02"
+nImages = len( imageIdList )
+features = np.zeros( nImages, nPixels )
+features = np.zeros( nImages, nPixels )
+
+for imageId in imageIdList:
+
+    # Load ROIs
+    rois = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
+    roisPoly = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
+
+    # Load image
+    image = loadImage( imageFolder + "/" + imageId + "." + imageFormat )
+
+    # Scale the image and Rois
+    image = gaussian(image, sigma=(1.0/scale)/2.0)
+    image_downscaled = downscale_local_mean(image, (binning, binning))
+    for key in rois.keys():
+        rois[key]["xy"] = rois[key]["xy"] * scale
+    img = Image.fromarray(image_downscaled)
+
+    # Extend the images (and ROIs) with a black border
+    imgExtended = extendImagePillow( img, scaledSide )
+    im = array( img )
+    imExtended = extendImageNumpy( im, scaledSide )
+    regionsExtended = extendRegions( rois, ( scaledSide, scaledSide ), img.size )
+
+    #fig1 = plt.figure(1, dpi=90)
+    #plt.imshow( array(imExtended) )
+    #showOverlayRegions( imExtended, regionsExtended, 5 )
+
+    # Get the mask from the extended images
+    masksExtended = convertRegionsToMasks( regionsExtended, imExtended )
+
+    #fig2 = plt.figure(2, dpi=90)
+    #plt.imshow( masksExtended["mb"], cmap='gray' )
+
+    nPixels = imExtended.shape[0] * imExtended.shape[1]
+    features1 = np.reshape( imExtended, (1, nPixels) )
+    labels1 = np.reshape( masksExtended["cb"], (1, nPixels) )
+
+    features = features.append(features1)
+    labels = labels1
 
 # Assume that each row of `features` corresponds to the same row as `labels`.
 assert features.shape[0] == labels.shape[0]
