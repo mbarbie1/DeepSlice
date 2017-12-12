@@ -314,75 +314,117 @@ def train( nPixels, W, b, optimizer, init, cost, train_X, train_Y, training_epoc
 sess = tf.InteractiveSession()
 
 
+def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList ):
+
+    # Get all the images in the imageFolder
+    imagePathList = findFiles( imageFolder, imageFormat, "" )
+
+    # Obtain the list of image sizes and their maximum
+    sizeList = imageSizeList( imagePathList )
+    maxWidth, maxHeight = maxImageSize( sizeList )
+    side = max( maxWidth, maxHeight )
+
+    # Find the scaled maximum size of the images    
+    scale = 1.0 / float(binning)
+    scaledSide = int( round( scale * side ) )
+    nPixels = scaledSide**2
+
+    # Prepare the feature and label arrays
+    imageIdList = list( map( lambda x: os.path.splitext(os.path.basename(x))[0], imagePathList ) )
+    nImages = len( imageIdList )
+    features = np.zeros( (nImages, nPixels), int )
+    labels = {}
+    for region in regionList:
+        labels[region] = np.zeros( (nImages, nPixels), int )
+
+    # For every image:
+    #   load images, ROIs,
+    #   scale them
+    #   Extend to max. size
+    #   Make a feature vector from them
+    #   Generate a mask from the ROIs
+    arrayIndex = 0
+    for imageId in imageIdList:
+        
+        # Print imageId
+        print(imageId)
+    
+        # Load image
+        image = loadImage( imageFolder + "/" + imageId + "." + imageFormat )
+        # Scale the image
+        image = gaussian(image, sigma=(1.0/scale)/2.0)
+        image_downscaled = downscale_local_mean(image, (binning, binning))
+        img = Image.fromarray(image_downscaled)
+        # Extend the images with a black border
+        imgExtended = extendImagePillow( img, scaledSide )
+        im = array( img )
+        imExtended = extendImageNumpy( im, scaledSide )
+        nPixels = imExtended.shape[0] * imExtended.shape[1]
+        features1 = np.reshape( imExtended, (1, nPixels) )
+        features[arrayIndex] = features1
+
+        # Load ROIs
+        rois = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
+        roisPoly = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
+        # Scale the ROIs with a black border
+        for key in rois.keys():
+            rois[key]["xy"] = rois[key]["xy"] * scale
+        # Extend the ROIs
+        regionsExtended = extendRegions( rois, ( scaledSide, scaledSide ), img.size )
+        # Get the mask from the extended images
+        masksExtended = convertRegionsToMasks( regionsExtended, imExtended )
+        for region in regionList:
+            try:
+                labels1 = np.reshape( masksExtended[region], (1, nPixels) )
+                labels[region][arrayIndex] = labels1
+            except:
+                print("Error")
+        arrayIndex = arrayIndex + 1
+
+        #fig1 = plt.figure(1, dpi=90)
+        #plt.imshow( array(imExtended) )
+        #showOverlayRegions( imExtended, regionsExtended, 5 )
+    
+    
+        #fig2 = plt.figure(2, dpi=90)
+        #plt.imshow( masksExtended["mb"], cmap='gray' )
+    
+    
+    # Assume that each row of `features` corresponds to the same row as `labels`.
+    assert features.shape[0] == labels["cb"].shape[0]
+
+    return features, labels
+
+
 
 """ ----------------------------------------------------------------------- """
 """ Loading data """
 """ ----------------------------------------------------------------------- """
 
-imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-
-    
-
-imagePathList = findFiles( imageFolder, "png", "" )
-sizeList = imageSizeList( imagePathList )
-maxWidth, maxHeight = maxImageSize( sizeList )
-side = max( maxWidth, maxHeight )
+#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+#imageFormat = "png"
+imageFormat = "tif"
 binning = 64
-scale = 1.0 / float(binning)
-scaledSide = int( round( scale * side ) )
-nPixels = scaledSide**2
-imageFormat = "png"
+regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
+dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 
-imagePathList
-imageIdList = list( map( lambda x: os.path.splitext(os.path.basename(x))[0], imagePathList ) )
+# Load pre-generated data if it exists else generate and save it
+try:
+    print( "Loading pre-generated features and labels data" )
+    features = np.load( os.path.join( dataFolder, "features.npy" ) )
+    labels = {}
+    for region in regionList:
+        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) )
+except:
+    print( "No pre-generated features and labels data available, generating new data" )
+    features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
+    np.save( os.path.join( dataFolder, "features.npy" ), features )
+    for region in regionList:
+        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
-#imageId =  "B31-02"
-nImages = len( imageIdList )
-features = np.zeros( nImages, nPixels )
-features = np.zeros( nImages, nPixels )
-
-for imageId in imageIdList:
-
-    # Load ROIs
-    rois = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
-    roisPoly = loadRegionsImage( roisFolder + "/" + imageId + ".zip", imageId )
-
-    # Load image
-    image = loadImage( imageFolder + "/" + imageId + "." + imageFormat )
-
-    # Scale the image and Rois
-    image = gaussian(image, sigma=(1.0/scale)/2.0)
-    image_downscaled = downscale_local_mean(image, (binning, binning))
-    for key in rois.keys():
-        rois[key]["xy"] = rois[key]["xy"] * scale
-    img = Image.fromarray(image_downscaled)
-
-    # Extend the images (and ROIs) with a black border
-    imgExtended = extendImagePillow( img, scaledSide )
-    im = array( img )
-    imExtended = extendImageNumpy( im, scaledSide )
-    regionsExtended = extendRegions( rois, ( scaledSide, scaledSide ), img.size )
-
-    #fig1 = plt.figure(1, dpi=90)
-    #plt.imshow( array(imExtended) )
-    #showOverlayRegions( imExtended, regionsExtended, 5 )
-
-    # Get the mask from the extended images
-    masksExtended = convertRegionsToMasks( regionsExtended, imExtended )
-
-    #fig2 = plt.figure(2, dpi=90)
-    #plt.imshow( masksExtended["mb"], cmap='gray' )
-
-    nPixels = imExtended.shape[0] * imExtended.shape[1]
-    features1 = np.reshape( imExtended, (1, nPixels) )
-    labels1 = np.reshape( masksExtended["cb"], (1, nPixels) )
-
-    features = features.append(features1)
-    labels = labels1
-
-# Assume that each row of `features` corresponds to the same row as `labels`.
-assert features.shape[0] == labels.shape[0]
 
 #features_placeholder = tf.placeholder(features.dtype, features.shape)
 #labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
@@ -398,12 +440,11 @@ assert features.shape[0] == labels.shape[0]
 """ ----------------------------------------------------------------------- """
 
 
-nPixels = labels.shape[0]
+nPixels = labels["cb"].shape[1]
 optimizer, init, cost, W, b = nn( nPixels )
 training_epochs = 5
 display_step = 1
-train( nPixels, W, b, optimizer, init, cost, features, labels, training_epochs, display_step )
-
+train( nPixels, W, b, optimizer, init, cost, features, labels["cb"], training_epochs, display_step )
 
 
 ## Train
