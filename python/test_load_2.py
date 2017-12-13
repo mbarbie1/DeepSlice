@@ -349,7 +349,7 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
 """ Setting up the network """
 """ ----------------------------------------------------------------------- """
 
-import dataset
+#import dataset
         
 class Network(object):
 
@@ -374,7 +374,7 @@ class Network(object):
         # Train and Evaluate the Model
         #
         # Cost is defined by the cross-entropy between predicted and real y
-        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.y_conv, self.y_))
+        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits( logits = self.y_conv, labels = self.y_))
         # Optimizer minimizes the cost
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.cross_entropy)
         self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
@@ -387,13 +387,12 @@ class Network(object):
 
     def train( self, training_data, training_labels, training_epochs, display_step ):
         
-        self.trainset = dataset.Train()
-
+        nImagesTraining = training_data.shape[0]
         for epoch in range(training_epochs):
             for imageIndex in range(nImagesTraining):
-                x = train_X[imageIndex].reshape(1,nPixels)
-                y = train_Y[imageIndex].reshape(1,nPixels)
-                self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: batch_xs, self.y_: batch_ys, self.keep_prob: 1.0})
+                x = training_data[imageIndex].reshape(1,nPixels)
+                y = training_labels[imageIndex].reshape(1,nPixels)
+                self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
 
                 """
         # tf Graph Input
@@ -478,10 +477,10 @@ training_labels = labels["cb"][0:training_n]
 
 
 nPixels = features.shape[1]
-optimizer, init, cost, W, b = nn( nPixels )
+nn = Network(nPixels)
 training_epochs = 5
 display_step = 1
-train( nPixels, W, b, optimizer, init, cost, training_data, training_labels, training_epochs, display_step )
+nn.train( training_data, training_labels, training_epochs, display_step )
 
 
 
