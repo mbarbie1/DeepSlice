@@ -7,6 +7,9 @@ Created on Sun Nov 12 11:14:40 2017
 
 @author: mbarbier
 """
+
+#%%
+
 from __future__ import division
 
 """ Clear all variables """
@@ -33,7 +36,7 @@ import shapely
 from ijroi import read_roi_zip as read_roi_zip_ijroi
 from read_roi import read_roi_zip as read_roi_zip_read_roi
 from PIL import Image
-
+from math import floor
 
 FLAGS = None
 
@@ -182,7 +185,7 @@ def upperLeftOrigin( largeSize, smallSize ):
     """
     The upper left coordinate (tuple) of a small rectangle in a larger rectangle (centered)
     """
-    origin = tuple( map( lambda x: int( round( (x[0]-x[1])/2 ) ), zip( largeSize, smallSize )) )
+    origin = tuple( map( lambda x: int( ( (x[0]-x[1])/2 ) ), zip( largeSize, smallSize )) )
     return origin
 
 def extendImageNumpy( img, side ):
@@ -255,66 +258,13 @@ def preLoadLabeledImages( imageFolder, imageFormat, contains ):
     return imagePathList, roisList
 
 
-
-""" ----------------------------------------------------------------------- """
-""" Setting up the network """
-""" ----------------------------------------------------------------------- """
-
-def nn( nPixels ):
-    """
-    
-    """
-    nClasses = 1
-    nOut = nPixels * nClasses
-    x = tf.placeholder( tf.float32, [None, nPixels])
-    W = tf.Variable( tf.truncated_normal([nPixels, nOut], stddev=0.1) )
-    b = tf.Variable( tf.constant(0.1, shape=[nOut]) )
-    y = tf.matmul( x, W) + b
-    # Predicted y
-    y_ = tf.placeholder(tf.float32, [None, nOut])
-    # Cost is defined by the cross-entropy between predicted and real y
-    cost = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
-    # Optimizer minimizes the cost
-    optimizer = tf.train.GradientDescentOptimizer(0.5).minimize(cost)
-    init = tf.global_variables_initializer()
-
-    return optimizer, init, cost, W, b
-
-
-def train( nPixels, W, b, optimizer, init, cost, train_X, train_Y, training_epochs, display_step ):
-    # tf Graph Input
-    X = tf.placeholder(tf.float32, [None, nPixels])
-    Y = tf.placeholder(tf.float32, [None, nPixels])
-    # Start training
-    with tf.Session() as sess:
-
-        # Run the initializer
-        sess.run(init)
-        
-        print( X.shape )
-        print( train_X.shape )
-
-        # Fit all training data
-        for epoch in range(training_epochs):
-            for (x, y) in zip(train_X, train_Y):
-                sess.run( optimizer, feed_dict={X: x, Y: y})
-
-            # Display logs per epoch step
-            if (epoch+1) % display_step == 0:
-                c = sess.run(cost, feed_dict={X: train_X, Y:train_Y})
-                print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(c), \
-                    "W=", sess.run(W), "b=", sess.run(b))
-
-        print("Optimization Finished!")
-        training_cost = sess.run(cost, feed_dict={X: train_X, Y: train_Y})
-        print("Training cost=", training_cost, "W=", sess.run(W), "b=", sess.run(b), '\n')
-
-# Interactive session vs normal?
-sess = tf.InteractiveSession()
-
-
+import math
 def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList ):
+    """
+    Generates feature vectors and label vectors from the ROIs, saves as a (nImages, nPixels) numpy arrays
+        features = single array (only intensity)
+        labels = dictionary with for each region the masks as values (e.g. labels["cb"] = single array)
+    """
 
     # Get all the images in the imageFolder
     imagePathList = findFiles( imageFolder, imageFormat, "" )
@@ -326,7 +276,7 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
 
     # Find the scaled maximum size of the images    
     scale = 1.0 / float(binning)
-    scaledSide = int( round( scale * side ) )
+    scaledSide = int( math.ceil( scale * side ) )
     nPixels = scaledSide**2
 
     # Prepare the feature and label arrays
@@ -345,16 +295,16 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
     #   Generate a mask from the ROIs
     arrayIndex = 0
     for imageId in imageIdList:
-        
+
         # Print imageId
         print(imageId)
-    
+
         # Load image
         image = loadImage( imageFolder + "/" + imageId + "." + imageFormat )
         # Scale the image
         image = gaussian(image, sigma=(1.0/scale)/2.0)
-        image_downscaled = downscale_local_mean(image, (binning, binning))
-        img = Image.fromarray(image_downscaled)
+        image_downscaled = downscale_local_mean( image, (binning, binning) )
+        img = Image.fromarray( image_downscaled )
         # Extend the images with a black border
         imgExtended = extendImagePillow( img, scaledSide )
         im = array( img )
@@ -381,15 +331,13 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
                 print("Error")
         arrayIndex = arrayIndex + 1
 
+# Test images
         #fig1 = plt.figure(1, dpi=90)
         #plt.imshow( array(imExtended) )
         #showOverlayRegions( imExtended, regionsExtended, 5 )
-    
-    
         #fig2 = plt.figure(2, dpi=90)
         #plt.imshow( masksExtended["mb"], cmap='gray' )
-    
-    
+
     # Assume that each row of `features` corresponds to the same row as `labels`.
     assert features.shape[0] == labels["cb"].shape[0]
 
@@ -398,15 +346,108 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
 
 
 """ ----------------------------------------------------------------------- """
-""" Loading data """
+""" Setting up the network """
 """ ----------------------------------------------------------------------- """
 
-#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
-#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
-#imageFormat = "png"
-imageFormat = "tif"
+import dataset
+        
+class Network(object):
+
+    
+    def __init__(self, nPixels):
+        """
+        
+        """
+        self.nPixels = nPixels
+        nClasses = 1
+        nOut = nPixels * nClasses
+        # Input x
+        self.x = tf.placeholder( tf.float32, shape = [None, nPixels], name = "x_nn" )
+        # Predicted y
+        self.y_ = tf.placeholder( tf.float32, shape = [None, nOut], name = "y_nn")
+
+        # Linear model
+        W = tf.Variable( tf.truncated_normal([nPixels, nOut], stddev=0.1) )
+        b = tf.Variable( tf.constant(0.1, shape = [ 1 , nOut]) )
+        self.y_conv = tf.matmul( self.x, W ) + b
+
+        # Train and Evaluate the Model
+        #
+        # Cost is defined by the cross-entropy between predicted and real y
+        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.y_conv, self.y_))
+        # Optimizer minimizes the cost
+        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.cross_entropy)
+        self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+
+        self.saver = tf.train.Saver()
+        self.sess = tf.Session()
+        self.sess.run(tf.initialize_all_variables())
+        print("Network initialization done")
+
+    def train( self, training_data, training_labels, training_epochs, display_step ):
+        
+        self.trainset = dataset.Train()
+
+        for epoch in range(training_epochs):
+            for imageIndex in range(nImagesTraining):
+                x = train_X[imageIndex].reshape(1,nPixels)
+                y = train_Y[imageIndex].reshape(1,nPixels)
+                self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: batch_xs, self.y_: batch_ys, self.keep_prob: 1.0})
+
+                """
+        # tf Graph Input
+        X = tf.placeholder( tf.float32, shape=[None, nPixels], name="X_train" )
+        Y = tf.placeholder( tf.float32, shape=[None, nPixels], name="Y_train" )
+        #nImagesTraining = train_X.shape.as_list()[0]
+        nImagesTraining = train_X.shape[0]
+        # Start training
+        with tf.Session() as sess:
+    
+            # Run the initializer
+            sess.run(init)
+    
+            print( X.shape )
+            print( train_X.shape )
+    
+            # Fit all training data
+    
+            for epoch in range(training_epochs):
+                for imageIndex in range(nImagesTraining):
+                    x = train_X[imageIndex].reshape(1,nPixels)
+                    y = train_Y[imageIndex].reshape(1,nPixels)
+                    sess.run( optimizer, feed_dict={X: x, Y: y})
+    
+                # Display logs per epoch step
+                if (epoch+1) % display_step == 0:
+                    c = sess.run(cost, feed_dict={X: train_X, Y:train_Y})
+                    print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(c), \
+                        "W=", sess.run(W), "b=", sess.run(b))
+    
+            print("Optimization Finished!")
+            training_cost = sess.run(cost, feed_dict={X: train_X, Y: train_Y})
+            print("Training cost=", training_cost, "W=", sess.run(W), "b=", sess.run(b), '\n')
+
+# Interactive session vs normal?
+sess = tf.InteractiveSession()
+"""
+
+
+#%%
+""" ----------------------------------------------------------------------- """
+""" Generating data """
+""" ----------------------------------------------------------------------- """
+
+# server
+imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+imageFormat = "png"
+
+# laptop platsmurf
+#imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+#roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+#imageFormat = "tif"
+
 binning = 64
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
@@ -414,10 +455,10 @@ dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 # Load pre-generated data if it exists else generate and save it
 try:
     print( "Loading pre-generated features and labels data" )
-    features = np.load( os.path.join( dataFolder, "features.npy" ) )
+    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
     labels = {}
     for region in regionList:
-        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) )
+        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
 except:
     print( "No pre-generated features and labels data available, generating new data" )
     features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
@@ -426,6 +467,40 @@ except:
         np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
 
+#%%
+""" ----------------------------------------------------------------------- """
+""" Data to neural network """
+""" ----------------------------------------------------------------------- """
+
+training_n = 40
+training_data = features[0:training_n]
+training_labels = labels["cb"][0:training_n]
+
+
+nPixels = features.shape[1]
+optimizer, init, cost, W, b = nn( nPixels )
+training_epochs = 5
+display_step = 1
+train( nPixels, W, b, optimizer, init, cost, training_data, training_labels, training_epochs, display_step )
+
+
+
+"""
+with tf.Session() as sess:
+
+    data_initializer = tf.placeholder(dtype=training_data.dtype, shape=training_data.shape)
+    label_initializer = tf.placeholder(dtype=training_labels.dtype, shape=training_labels.shape)
+
+    input_data = tf.Variable(data_initializer, trainable=False, collections=[])
+    input_labels = tf.Variable(label_initializer, trainable=False, collections=[])
+
+    sess.run(input_data.initializer,
+           feed_dict={data_initializer: training_data})
+    sess.run(input_labels.initializer,
+           feed_dict={label_initializer: training_labels})
+"""
+
+    
 #features_placeholder = tf.placeholder(features.dtype, features.shape)
 #labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
 
@@ -440,11 +515,6 @@ except:
 """ ----------------------------------------------------------------------- """
 
 
-nPixels = labels["cb"].shape[1]
-optimizer, init, cost, W, b = nn( nPixels )
-training_epochs = 5
-display_step = 1
-train( nPixels, W, b, optimizer, init, cost, features, labels["cb"], training_epochs, display_step )
 
 
 ## Train
