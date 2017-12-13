@@ -382,7 +382,7 @@ class Network(object):
 
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         print("Network initialization done")
 
     def train( self, training_data, training_labels, training_epochs, display_step ):
@@ -393,8 +393,31 @@ class Network(object):
                 x = training_data[imageIndex].reshape(1,nPixels)
                 y = training_labels[imageIndex].reshape(1,nPixels)
                 self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
+                print( "Epoch: " + str(epoch) + ", image: " + str(imageIndex) + ", Accuracy: " + str(self.train_accuracy) )
 
-                """
+"""    
+    def predict( self, data ):
+
+        nImagesPredict = data.shape[0]
+            for imageIndex in range(nImagesPredict):
+
+                test_cost = []
+                test_accuracy = []
+                for batch_num, (input_X, labels_y) in enumerate(epoch):
+                    cost, accuracy = model.step(sess,
+                                                input_X, labels_y,
+                                                dropout_value_conv=0.0,
+                                                dropout_value_hidden=0.0,
+                                                forward_only=True)
+                    test_cost.append(cost)
+                    test_accuracy.append(accuracy)
+ 
+                print "Validation:"
+                print "Epoch: %i, batch: %i, cost: %.3f, accuarcy: %.3f" % (
+                    epoch_num, batch_num,
+                    np.mean(test_cost), np.mean(test_accuracy))
+"""     
+"""
         # tf Graph Input
         X = tf.placeholder( tf.float32, shape=[None, nPixels], name="X_train" )
         Y = tf.placeholder( tf.float32, shape=[None, nPixels], name="Y_train" )
@@ -471,7 +494,7 @@ except:
 """ Data to neural network """
 """ ----------------------------------------------------------------------- """
 
-training_n = 40
+training_n = 10
 training_data = features[0:training_n]
 training_labels = labels["cb"][0:training_n]
 
