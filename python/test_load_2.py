@@ -36,7 +36,7 @@ import shapely
 from ijroi import read_roi_zip as read_roi_zip_ijroi
 from read_roi import read_roi_zip as read_roi_zip_read_roi
 from PIL import Image
-from math import floor
+import math
 
 FLAGS = None
 
@@ -350,7 +350,7 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
 """ ----------------------------------------------------------------------- """
 
 #import dataset
-        
+
 class Network(object):
 
     
@@ -377,8 +377,14 @@ class Network(object):
         self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits( logits = self.y_conv, labels = self.y_))
         # Optimizer minimizes the cost
         self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.cross_entropy)
-        self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
-        self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+        #self.perc_correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
+        
+        self.x_image = tf.reshape(self.x, [-1, int(math.sqrt(self.nPixels)), int(math.sqrt(self.nPixels)), 1])
+        self.y_conv_image = tf.reshape(self.y_conv, [-1, int(math.sqrt(self.nPixels)), int(math.sqrt(self.nPixels)), 1])
+        self.mse = tf.reduce_sum( tf.square( tf.cast( tf.equal( self.y_conv, self.y_ ), tf.float32 ) ), reduction_indices = 1 ) 
+        self.accuracy = tf.reduce_mean( tf.cast( tf.equal( self.y_conv, self.y_ ), tf.float32 ), reduction_indices = 1 )
+        self.distance = tf.sqrt( tf.cast(self.mse, tf.float32 ) )
+        #self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
 
         self.saver = tf.train.Saver()
         self.sess = tf.Session()
@@ -393,7 +399,13 @@ class Network(object):
                 x = training_data[imageIndex].reshape(1,nPixels)
                 y = training_labels[imageIndex].reshape(1,nPixels)
                 self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
-                print( "Epoch: " + str(epoch) + ", image: " + str(imageIndex) + ", Accuracy: " + str(self.train_accuracy) )
+                self.train_mse = self.mse.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
+                self.train_distance = self.distance.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
+                image = self.x_image.eval(session=self.sess, feed_dict={self.x: x, self.y_: y}) #here is your image Tensor :) 
+                print(image.shape)
+                print(image)
+                Image.fromarray(np.asarray(image.astype('uint8'))).show()
+                print( "Epoch: " + str(epoch) + ", image: " + str(imageIndex) + ", Accuracy: " + str(self.train_accuracy[0])  + ", MSE: " + str(self.train_mse[0]) + ", Accuracy: " + str(self.train_distance[0]) )
 
 """    
     def predict( self, data ):
@@ -475,18 +487,19 @@ regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 
 # Load pre-generated data if it exists else generate and save it
-try:
-    print( "Loading pre-generated features and labels data" )
-    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
-    labels = {}
-    for region in regionList:
-        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
-except:
-    print( "No pre-generated features and labels data available, generating new data" )
-    features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
-    np.save( os.path.join( dataFolder, "features.npy" ), features )
-    for region in regionList:
-        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
+
+#try:
+#    print( "Loading pre-generated features and labels data" )
+#    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
+#    labels = {}
+#    for region in regionList:
+#        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
+#except:
+print( "No pre-generated features and labels data available, generating new data" )
+features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
+np.save( os.path.join( dataFolder, "features.npy" ), features )
+for region in regionList:
+    np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
 
 #%%
@@ -494,16 +507,19 @@ except:
 """ Data to neural network """
 """ ----------------------------------------------------------------------- """
 
-training_n = 10
+training_n = 5
 training_data = features[0:training_n]
 training_labels = labels["cb"][0:training_n]
-
-
-nPixels = features.shape[1]
-nn = Network(nPixels)
-training_epochs = 5
-display_step = 1
-nn.train( training_data, training_labels, training_epochs, display_step )
+a1 = training_data.astype('uint8')
+a2 = np.asarray( a1 ).reshape(-1,84)
+i2 = Image.fromarray( a2 )
+i2.show()
+i2.save( os.path.join(dataFolder, "test.png" ) )
+#nPixels = features.shape[1]
+#nn = Network(nPixels)
+#training_epochs = 3
+#display_step = 1
+#nn.train( training_data, training_labels, training_epochs, display_step )
 
 
 
