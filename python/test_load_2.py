@@ -473,14 +473,14 @@ sess = tf.InteractiveSession()
 """ ----------------------------------------------------------------------- """
 
 # server
-imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-imageFormat = "png"
+#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+#imageFormat = "png"
 
 # laptop platsmurf
-#imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
-#roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
-#imageFormat = "tif"
+imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+imageFormat = "tif"
 
 binning = 64
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
@@ -488,18 +488,18 @@ dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 
 # Load pre-generated data if it exists else generate and save it
 
-#try:
-#    print( "Loading pre-generated features and labels data" )
-#    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
-#    labels = {}
-#    for region in regionList:
-#        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
-#except:
-print( "No pre-generated features and labels data available, generating new data" )
-features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
-np.save( os.path.join( dataFolder, "features.npy" ), features )
-for region in regionList:
-    np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
+try:
+    print( "Loading pre-generated features and labels data" )
+    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
+    labels = {}
+    for region in regionList:
+        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
+except:
+    print( "No pre-generated features and labels data available, generating new data" )
+    features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
+    np.save( os.path.join( dataFolder, "features.npy" ), features )
+    for region in regionList:
+        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
 
 #%%
@@ -511,8 +511,8 @@ training_n = 5
 training_data = features[0:training_n]
 training_labels = labels["cb"][0:training_n]
 a1 = training_data.astype('uint8')
-a2 = np.asarray( a1 ).reshape(-1,84)
-i2 = Image.fromarray( a2 )
+#a2 = np.asarray( a1 ).reshape(-1,84)
+i2 = Image.fromarray( a1 )
 i2.show()
 i2.save( os.path.join(dataFolder, "test.png" ) )
 #nPixels = features.shape[1]
