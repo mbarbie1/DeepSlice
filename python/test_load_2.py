@@ -259,7 +259,7 @@ def preLoadLabeledImages( imageFolder, imageFormat, contains ):
 
 
 import math
-def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList ):
+def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList, contains ):
     """
     Generates feature vectors and label vectors from the ROIs, saves as a (nImages, nPixels) numpy arrays
         features = single array (only intensity)
@@ -267,7 +267,7 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
     """
 
     # Get all the images in the imageFolder
-    imagePathList = findFiles( imageFolder, imageFormat, "" )
+    imagePathList = findFiles( imageFolder, imageFormat, contains )
 
     # Obtain the list of image sizes and their maximum
     sizeList = imageSizeList( imagePathList )
@@ -282,7 +282,7 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList 
     # Prepare the feature and label arrays
     imageIdList = list( map( lambda x: os.path.splitext(os.path.basename(x))[0], imagePathList ) )
     nImages = len( imageIdList )
-    features = np.zeros( (nImages, nPixels), int )
+    features = np.zeros( (nImages, nPixels), float )
     labels = {}
     for region in regionList:
         labels[region] = np.zeros( (nImages, nPixels), int )
@@ -473,33 +473,34 @@ sess = tf.InteractiveSession()
 """ ----------------------------------------------------------------------- """
 
 # server
-#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-#imageFormat = "png"
+imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+imageFormat = "png"
 
 # laptop platsmurf
-imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
-roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
-imageFormat = "tif"
+#imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+#roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+#imageFormat = "tif"
 
 binning = 64
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 
 # Load pre-generated data if it exists else generate and save it
+contains = "01"
 
-try:
-    print( "Loading pre-generated features and labels data" )
-    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
-    labels = {}
-    for region in regionList:
-        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
-except:
-    print( "No pre-generated features and labels data available, generating new data" )
-    features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList )
-    np.save( os.path.join( dataFolder, "features.npy" ), features )
-    for region in regionList:
-        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
+#try:
+#    print( "Loading pre-generated features and labels data" )
+#    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
+#    labels = {}
+#    for region in regionList:
+#        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
+#except:
+print( "No pre-generated features and labels data available, generating new data" )
+features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList, contains )
+np.save( os.path.join( dataFolder, "features.npy" ), features )
+for region in regionList:
+    np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
 
 #%%
@@ -507,9 +508,13 @@ except:
 """ Data to neural network """
 """ ----------------------------------------------------------------------- """
 
+
+
 training_n = 5
 training_data = features[0:training_n]
 training_labels = labels["cb"][0:training_n]
+a0 = training_data
+
 a1 = training_data.astype('uint8')
 #a2 = np.asarray( a1 ).reshape(-1,84)
 i2 = Image.fromarray( a1 )
