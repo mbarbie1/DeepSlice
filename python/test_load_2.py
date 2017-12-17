@@ -473,14 +473,14 @@ sess = tf.InteractiveSession()
 """ ----------------------------------------------------------------------- """
 
 # server
-imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-imageFormat = "png"
+#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+#imageFormat = "png"
 
 # laptop platsmurf
-#imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
-#roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
-#imageFormat = "tif"
+imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+imageFormat = "tif"
 
 binning = 64
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
