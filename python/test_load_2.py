@@ -9,7 +9,6 @@ Created on Sun Nov 12 11:14:40 2017
 """
 
 #%%
-
 from __future__ import division
 
 """ Clear all variables """
@@ -25,6 +24,7 @@ import tensorflow as tf
 from scipy import misc
 from skimage import io
 from skimage.transform import rescale, resize, downscale_local_mean
+from skimage import img_as_float,img_as_uint
 from skimage.filters import gaussian
 import rasterio
 import rasterio.features
@@ -351,9 +351,10 @@ def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList,
 
 #import dataset
 
+from skimage.viewer import ImageViewer
+
 class Network(object):
 
-    
     def __init__(self, nPixels):
         """
         
@@ -391,7 +392,28 @@ class Network(object):
         self.sess.run(tf.global_variables_initializer())
         print("Network initialization done")
 
-    def train( self, training_data, training_labels, training_epochs, display_step ):
+    def show( self, training_data, training_labels, outputFolder ):
+        
+        for imageIndex in range(2):
+            x = training_data[imageIndex].reshape(1,nPixels)
+            y = training_labels[imageIndex].reshape(1,nPixels)
+            image = self.x_image.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
+            image = np.squeeze(image, axis=0)
+            image = np.squeeze(image, axis=2)
+            print(image.shape)
+            print(image)
+            simage = img_as_uint(image)
+            #viewer = ImageViewer(simage)
+            #viewer.show()
+            imageSavePath = os.path.join( outputFolder, "save_" + str(imageIndex) + ".png" )
+            io.imsave( imageSavePath, simage)
+#            plt.show()
+
+
+        #Image.fromarray(np.asarray(simage)).show()
+
+
+    def train( self, training_data, training_labels, training_epochs, display_step, outputFolder ):
         
         nImagesTraining = training_data.shape[0]
         for epoch in range(training_epochs):
@@ -401,10 +423,15 @@ class Network(object):
                 self.train_accuracy = self.accuracy.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
                 self.train_mse = self.mse.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
                 self.train_distance = self.distance.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
-                image = self.x_image.eval(session=self.sess, feed_dict={self.x: x, self.y_: y}) #here is your image Tensor :) 
-                print(image.shape)
-                print(image)
-                Image.fromarray(np.asarray(image.astype('uint8'))).show()
+                image = self.y_conv_image.eval(session=self.sess, feed_dict={self.x: x, self.y_: y})
+                image = np.squeeze(image, axis=0)
+                image = np.squeeze(image, axis=2)
+                imageSavePath = os.path.join( outputFolder, "train_prob_" + str(imageIndex) + "_epoch_" + str(epoch) + ".png" )
+                io.imsave( imageSavePath, image)
+                #io.imshow(image)
+                #print(image.shape)
+                #print(image)
+                #Image.fromarray(np.asarray(img_as_uint(image))).show()
                 print( "Epoch: " + str(epoch) + ", image: " + str(imageIndex) + ", Accuracy: " + str(self.train_accuracy[0])  + ", MSE: " + str(self.train_mse[0]) + ", Accuracy: " + str(self.train_distance[0]) )
 
 """    
@@ -473,34 +500,36 @@ sess = tf.InteractiveSession()
 """ ----------------------------------------------------------------------- """
 
 # server
-#imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
-#roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
-#imageFormat = "png"
+imageFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_images"
+roisFolder = "/home/mbarbier/Documents/data/reference_libraries/B31/DAPI/reference_rois"
+#imageFolder = "/home/mbarbier/Documents/data/test_ref_small/DAPI/reference_images"
+#roisFolder = "/home/mbarbier/Documents/data/test_ref_small/DAPI/reference_rois"
+imageFormat = "png"
 
 # laptop platsmurf
-imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
-roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
-imageFormat = "tif"
+#imageFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_images"
+#roisFolder = "/home/mbarbier/Documents/prog/SliceMap/dataset/input/reference_rois"
+#imageFormat = "tif"
 
 binning = 64
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
 
 # Load pre-generated data if it exists else generate and save it
-contains = "01"
+contains = ""#"01"
 
-#try:
-#    print( "Loading pre-generated features and labels data" )
-#    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
-#    labels = {}
-#    for region in regionList:
-#        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
-#except:
-print( "No pre-generated features and labels data available, generating new data" )
-features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList, contains )
-np.save( os.path.join( dataFolder, "features.npy" ), features )
-for region in regionList:
-    np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
+try:
+    print( "Loading pre-generated features and labels data" )
+    features = np.load( os.path.join( dataFolder, "features.npy" ) ).astype(np.float32)
+    labels = {}
+    for region in regionList:
+        labels[region] = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
+except:
+    print( "No pre-generated features and labels data available, generating new data" )
+    features, labels = featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList, contains )
+    np.save( os.path.join( dataFolder, "features.npy" ), features )
+    for region in regionList:
+        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
 
 
 #%%
@@ -510,21 +539,22 @@ for region in regionList:
 
 
 
-training_n = 5
+training_n = 10
 training_data = features[0:training_n]
 training_labels = labels["cb"][0:training_n]
-a0 = training_data
-
-a1 = training_data.astype('uint8')
+#a0 = training_data
+#a1 = training_data.astype('uint8')
 #a2 = np.asarray( a1 ).reshape(-1,84)
-i2 = Image.fromarray( a1 )
-i2.show()
-i2.save( os.path.join(dataFolder, "test.png" ) )
-#nPixels = features.shape[1]
-#nn = Network(nPixels)
-#training_epochs = 3
-#display_step = 1
-#nn.train( training_data, training_labels, training_epochs, display_step )
+#i2 = Image.fromarray( a1 )
+#i2.show()
+#i2.save( os.path.join(dataFolder, "test.png" ) )
+
+nPixels = features.shape[1]
+nn = Network(nPixels)
+#nn.show( training_data, training_labels, dataFolder )
+training_epochs = 100
+display_step = 1
+nn.train( training_data, training_labels, training_epochs, display_step, dataFolder )
 
 
 
