@@ -1,7 +1,8 @@
 # Ignore the external libraries
 external_libraries/
 # Ignore the data folder
-data/
+data/*
+!data/features_labels_2*
 # Ignore all folders except for the last one we use for the segmentation
 ./*
 !python/
