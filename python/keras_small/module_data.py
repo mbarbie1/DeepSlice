@@ -253,6 +253,24 @@ def preLoadLabeledImages( imageFolder, imageFormat, contains ):
 
 
 import math
+
+
+def mergeLabelImage( y_labels ):
+    """
+    Merge the layers with the different regions by giving them a label: 0, 1, ..
+    """
+    shape_ori = list(y_labels.shape)
+    shape_new = tuple(shape_ori[:-1])
+    nClasses = y_labels.shape[-1]
+
+    y = np.argmax( y_labels, axis = -1 )
+    
+    #y = np.zeros(shape_new)
+    #for i in range(1,nClasses):
+    #    y = y + i*y_labels[:,:,i]
+        
+    return y
+
 '''
 def featureAndLabelsPatch( imageFolder, imageFormat, roisFolder, patchesPerRegion, patchSize, regionList, fileNameContains ):
 
@@ -260,6 +278,82 @@ def featureAndLabelsPatch( imageFolder, imageFormat, roisFolder, patchesPerRegio
     imagePathList = findFiles( imageFolder, imageFormat, contains )
     return features, labels
 '''
+
+'''
+def multiLabelsArray( labelsDic, regionList, img_cols, img_rows  ):
+
+    nClasses = len(regionList) + 1
+    labelsArray = np.zeros(( img_rows , img_cols  , nClasses ))
+    for c in range(nClasses):
+        labelsArray[: , : , c ] = (img == c ).astype(int)
+		
+	return labelsArray
+
+def labelsArray( labelsDic, regionList,  img_cols, img_rows  ):
+
+    nClasses = len(regionList) + 1
+    labelsArray = np.zeros(( img_rows , img_cols  , nClasses ))
+    for region in regionList:
+        labelsDic[region] = np.zeros( (nImages, nPixels), int )
+    for c in range(nClasses):
+        labelsArray[: , : , c ] = (img == c ).astype(int)
+
+	try:
+		img = cv2.imread(path, 1)
+		img = cv2.resize(img, ( width , height ))
+		img = img[:, : , 0]
+
+		for c in range(nClasses):
+			seg_labels[: , : , c ] = (img == c ).astype(int)
+
+	except Exception, e:
+		print e
+		
+	labelsArray = np.reshape( labelsArray, ( width*height , nClasses ) )
+	return labelsArray
+'''
+
+def getImagesInfo( imageFolder, imageFormat, contains, binning ):
+    
+    # Get all the images in the imageFolder
+    imagePathList = findFiles( imageFolder, imageFormat, contains )
+
+    # Obtain the list of image sizes and their maximum
+    sizeList = imageSizeList( imagePathList )
+    maxWidth, maxHeight = maxImageSize( sizeList )
+    side = max( maxWidth, maxHeight )
+
+    # Find the scaled maximum size of the images    
+    scale = 1.0 / float(binning)
+    scaledSide = int( math.ceil( scale * side ) )
+    nPixels = scaledSide**2
+
+    # Prepare the feature and label arrays
+    imageIdList = list( map( lambda x: os.path.splitext(os.path.basename(x))[0], imagePathList ) )
+    nImages = len( imageIdList )
+    
+    return imageIdList, imagePathList, sizeList, scaledSide
+
+def generateExtendedMask( maskFolder, imageIdList, imagePathList, sizeList, scaledSide, regionName, binning ):
+
+    nImages = len( imageIdList ) 
+    masks = np.zeros( ( nImages, scaledSide, scaledSide ) )
+    #savePath = os.path.join( flag.output_rest_region_dir, "label_" + regionName + ".npy")
+    #misc.imsave( savePath, masks )
+
+    i = 0
+    for imageId in imageIdList:
+        image = loadImage( os.path.join( maskFolder, "mask_" + imageId + ".png" ) )
+        image_downscaled = downscale_local_mean( image, (binning, binning) )
+        image_downscaled = np.rint( image_downscaled )
+        #img = Image.fromarray( image_downscaled )
+        #im = array( img )
+        imExtended = extendImageNumpy( image_downscaled, scaledSide )
+        masks[i,...] = imExtended
+        i = i + 1
+
+    return masks
+
 
 def featureAndLabels( imageFolder, imageFormat, roisFolder, binning, regionList, contains, reduceDimension ):
     """
@@ -395,6 +489,32 @@ def lazyGenerateSmall( imageFolder, roisFolder, dataFolder, imageFormat, contain
             np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels[region] )
             
     return features, labels
+
+def lazyGenerateRestRegion( imageFolder, imageFormat, contains, maskFolder, labels, dataFolder, binning, regionList ):
+    """
+    Load pre-generated data if it exists else generate and save it
+    labels = for each region the mask of the downscaled image, reshaped in 1 dimension
+    
+        binning = 64
+        regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
+        dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data"
+    """
+    if not os.path.exists(dataFolder):
+        os.makedirs(dataFolder)
+
+    region = "rest"
+    try:
+        print( "Loading pre-generated features and labels data" )
+        labels_rest = np.load( os.path.join( dataFolder, "labels_" + region + ".npy" ) ).astype(np.float32)
+        #labels[region] = labels_rest
+    except:
+        print( "No pre-generated rest region label data available, generating new data" )
+        imageIdList, imagePathList, sizeList, scaledSide = getImagesInfo( imageFolder, imageFormat, contains, binning )
+        labels_rest = generateExtendedMask( maskFolder, imageIdList, imagePathList, sizeList, scaledSide, region, binning )
+        np.save( os.path.join( dataFolder, "labels_" + region + ".npy" ), labels_rest )
+            
+    return labels_rest
+
 
 
 def lazyGeneratePatch( imageFolder, roisFolder, dataFolder, imageFormat, contains, binning, regionList ):

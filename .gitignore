@@ -2,6 +2,14 @@
 external_libraries/
 # Ignore the data folder
 data/
+# Ignore all folders except for the last one we use for the segmentation
+./*
+!python/
+python/*
+!python/keras_small/
+python/keras_small/neubias
+python/keras_small/output
+python/keras_small/__pycache__
 # Ignore hdf5 files
 *.h5
 
