@@ -59,22 +59,43 @@ parser.add_argument("--binning", help="image binning", default=binning, type=int
 parser.add_argument("--region_list", help="List of ROIs", default=regionList )
 parser.add_argument("--extended_region_list", help="List of ROIs", default=extended_regionList )
 parser.add_argument("--image_format", help="Format of input and output images", default=imageFormat )
-parser.add_argument("--show_metrics", help="Whether the computed metrics through training are shown (otherwise they are saved in the output plots subdirectory), 1 means also show, 0 means only save plot [1,0]", default=imageFormat )
+parser.add_argument("--show_metrics", help="Whether the computed metrics through training are shown (otherwise they are saved in the output plots subdirectory), 1 means also show, 0 means only save plot [1,0]", default=0, type=int )
 
 flag = parser.parse_args()
 parameterCsvPath = os.path.join( flag.output_dir, "run_parameters.csv")
 
 def run( flag ):
+    """
+    Runs the training of the network for all defined parameters. 
+    For each parameter-set a training will be performed and output written in a different folder.
+    This is also the place to define your parameters.
+    """
+    
+    # List of neural networks to train:
     nns = ["unet"]
+
+    ## Use data augmentation:
     #flag.data_augmentation = 1
+
+    # Number of epochs to train for:
     flag.epochs = 1
-    #/home/mbarbier/Documents/prog/DeepSlice/
+    
+    ## File to load pre-computed weights from (if commented no pre-computed weights are used)
     #flag.load_weights_file = "python/keras_small/output/Weights/save_unet_adam_categorical_crossentropy_epochs-1200_batch-size-18_image-size-192_lr-1e-05_data-augm-0.h5"
+    
+    # List of learning rates to train for:
     lrs = [1e-5]
+    
+    # List of batch-sizes to train for:
     bsz = [ 18 ]
     
+    # List of loss metrics to train for:    
     lms = [ "categorical_crossentropy" ]
+    
+    # List of image sizes to train for (images are scaled to this resolution):
     imszs = [ 192 ]
+
+    # starting to loop over all above parameter list given above:
     for nn in nns:
         for imsz in imszs:
             for lr in lrs:
@@ -87,7 +108,7 @@ def run( flag ):
                         flag.batch_size = bs
                         flag.run_id = 'save_%s_%s_%s_epochs-%d_batch-size-%d_image-size-%d_lr-%3.3g_data-augm-%d' % ( flag.network, flag.optimizer, flag.loss_metric, flag.epochs, flag.batch_size, flag.image_size, flag.learning_rate, flag.data_augmentation )
                         flag.model_id = 'model_%s_%s_%s_image-size-%d_lr-%3.3g' % ( flag.network, flag.optimizer, flag.loss_metric, flag.image_size, flag.learning_rate )
-                        flag.output_run_dir = os.path.join( flag.output_dir, flag.run_id )
+                        flag.output_run_dir = os.path.join( flag.output_dir, "runs", flag.run_id )
                         makeDirs( flag )
         
                         t_begin = time.time()
@@ -103,6 +124,9 @@ def run( flag ):
 
 
 def makeDirs( flag ):
+    """
+    Generate the necessary output folders    
+    """
     if not os.path.isdir( flag.output_dir ):
         os.mkdir( flag.output_dir )
     if not os.path.isdir( flag.output_run_dir ):
@@ -143,6 +167,9 @@ def makeDirs( flag ):
         os.mkdir( flag.data_dir )
 
 def main():
+    """
+    This is the main function
+    """
 
     run( flag )
     #train_op = Unet_train.TrainModel(flag)
