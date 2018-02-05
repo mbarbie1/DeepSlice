@@ -25,8 +25,8 @@ imageFormat = "png"
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 extended_regionList = [ "bg", "cb", "hp", "cx", "th", "mb", "bs", "other" ]
 binning = 16
-dataFolder = "data/features_labels_2d_" + str(binning)
-restRegionFolder = "data/rest_region_labels_2d"
+dataFolder = "./data/features_labels_2d_" + str(binning)
+restRegionFolder = "./data/rest_region_labels_2d"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_rest_region_dir", help="Rest region masks path", default=restRegionFolder)
@@ -59,6 +59,7 @@ parser.add_argument("--binning", help="image binning", default=binning, type=int
 parser.add_argument("--region_list", help="List of ROIs", default=regionList )
 parser.add_argument("--extended_region_list", help="List of ROIs", default=extended_regionList )
 parser.add_argument("--image_format", help="Format of input and output images", default=imageFormat )
+parser.add_argument("--show_metrics", help="Whether the computed metrics through training are shown (otherwise they are saved in the output plots subdirectory), 1 means also show, 0 means only save plot [1,0]", default=imageFormat )
 
 flag = parser.parse_args()
 parameterCsvPath = os.path.join( flag.output_dir, "run_parameters.csv")
@@ -66,7 +67,7 @@ parameterCsvPath = os.path.join( flag.output_dir, "run_parameters.csv")
 def run( flag ):
     nns = ["unet"]
     #flag.data_augmentation = 1
-    flag.epochs = 20
+    flag.epochs = 1
     #/home/mbarbier/Documents/prog/DeepSlice/
     #flag.load_weights_file = "python/keras_small/output/Weights/save_unet_adam_categorical_crossentropy_epochs-1200_batch-size-18_image-size-192_lr-1e-05_data-augm-0.h5"
     lrs = [1e-5]
