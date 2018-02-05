@@ -25,8 +25,8 @@ imageFormat = "png"
 regionList = [ "cb", "hp", "cx", "th", "mb", "bs" ]
 extended_regionList = [ "bg", "cb", "hp", "cx", "th", "mb", "bs", "other" ]
 binning = 16
-dataFolder = "/home/mbarbier/Documents/prog/DeepSlice/data/features_labels_2d_" + str(binning)
-restRegionFolder = "/home/mbarbier/Documents/prog/DeepSlice/data/rest_region_labels_2d"
+dataFolder = "data/features_labels_2d_" + str(binning)
+restRegionFolder = "data/rest_region_labels_2d"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_rest_region_dir", help="Rest region masks path", default=restRegionFolder)
@@ -67,7 +67,8 @@ def run( flag ):
     nns = ["unet"]
     #flag.data_augmentation = 1
     flag.epochs = 20
-    flag.load_weights_file = "/home/mbarbier/Documents/prog/DeepSlice/python/keras_small/output/Weights/save_unet_adam_categorical_crossentropy_epochs-1200_batch-size-18_image-size-192_lr-1e-05_data-augm-0.h5"
+    #/home/mbarbier/Documents/prog/DeepSlice/
+    #flag.load_weights_file = "python/keras_small/output/Weights/save_unet_adam_categorical_crossentropy_epochs-1200_batch-size-18_image-size-192_lr-1e-05_data-augm-0.h5"
     lrs = [1e-5]
     bsz = [ 18 ]
     
