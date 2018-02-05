@@ -66,6 +66,6 @@ np.testing.assert_array_less(loss_weighted,loss)
 print('OK test2')
 
 # same keras version as I tested it on?
-import keras
-assert keras.__version__.split('.')[:2]==['2', '0'], 'this was tested on keras 2.0.6 you have %s' % keras.__version
-print('OK version')
+#import keras
+#assert keras.__version__.split('.')[:2]==['2', '0'], 'this was tested on keras 2.0.6 you have %s' % keras.__version__
+#print('OK version')
