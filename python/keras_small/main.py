@@ -62,12 +62,13 @@ parser.add_argument("--extended_region_list", help="List of ROIs", default=exten
 parser.add_argument("--image_format", help="Format of input and output images", default=imageFormat )
 parser.add_argument("--show_metrics", help="Whether the computed metrics through training are shown (otherwise they are saved in the output plots subdirectory), 1 means also show, 0 means only save plot [1,0]", default=0, type=int )
 parser.add_argument("--run_id_prefix", help="Prefix of the run_id which will determine the naming of the output folders and files", default="peter" )
+parser.add_argument("--run_function", help="What to run? Training, loop training, prediction, both? [train,predict]", default="peter" )
 
 
 flag = parser.parse_args()
 parameterCsvPath = os.path.join( flag.output_dir, "run_parameters.csv")
 
-def run( flag ):
+def run_train_loop( flag ):
     """
     Runs the training of the network for all defined parameters. 
     For each parameter-set a training will be performed and output written in a different folder.
@@ -115,21 +116,83 @@ def run( flag ):
                             flag.loss_metric = lm
                             flag.learning_rate = lr
                             flag.batch_size = bs
-                            flag.run_id = '%s_%s_%s_%s_epochs-%d_batch-size-%d_image-size-%d_lr-%3.3g_data-augm-%d_prim-augm-%s' % ( flag.run_id_prefix, flag.network, flag.optimizer, flag.loss_metric, flag.epochs, flag.batch_size, flag.image_size, flag.learning_rate, flag.data_augmentation, flag.primitive_augmentation )
-                            flag.model_id = 'model_%s_%s_%s_image-size-%d_lr-%3.3g_prim-augm-%s' % ( flag.network, flag.optimizer, flag.loss_metric, flag.image_size, flag.learning_rate, flag.primitive_augmentation )
-                            flag.output_run_dir = os.path.join( flag.output_dir, "runs", flag.run_id )
-                            makeDirs( flag )
+                            run_train( flag )
 
-                            t_begin = time.time()
-                            train( flag )
-                            t_end = time.time()
-                            t_training = t_end - t_begin
-                            print('-'*30)
-                            print('Training duration: %d s' % (t_training) )
-                            print('-'*30)
-                            flag.time_training = t_training
-                            # still needs to be sorted
-                            writeDictToCsv( parameterCsvPath, vars(flag) )
+
+def run_train( flag ):
+    """
+    Runs the training of the network for all defined parameters. 
+    For each parameter-set a training will be performed and output written in a different folder.
+    This is also the place to define your parameters.
+    """
+
+    flag.run_id = '%s_%s_%s_%s_epochs-%d_batch-size-%d_image-size-%d_lr-%3.3g_data-augm-%d_prim-augm-%s' % ( flag.run_id_prefix, flag.network, flag.optimizer, flag.loss_metric, flag.epochs, flag.batch_size, flag.image_size, flag.learning_rate, flag.data_augmentation, flag.primitive_augmentation )
+    flag.model_id = 'model_%s_%s_%s_image-size-%d_lr-%3.3g_prim-augm-%s' % ( flag.network, flag.optimizer, flag.loss_metric, flag.image_size, flag.learning_rate, flag.primitive_augmentation )
+    flag.output_run_dir = os.path.join( flag.output_dir, "runs", flag.run_id )
+    makeDirs( flag )
+    t_begin = time.time()
+    train( flag )
+    t_end = time.time()
+    t_training = t_end - t_begin
+    print('-'*30)
+    print('Training duration: %d s' % (t_training) )
+    print('-'*30)
+    flag.time_training = t_training
+    # still needs to be sorted
+    writeDictToCsv( parameterCsvPath, vars(flag) )
+
+
+def run_predict( flag ):
+    """
+    This is the main function
+    """
+
+    if not os.path.isdir( flag.output_dir ):
+        os.mkdir( flag.output_dir )
+    flag.output_predict_dir = os.path.join( flag.output_dir, flag.output_predict_subdir)
+    if not os.path.isdir( flag.output_predict_dir ):
+        os.mkdir( flag.output_predict_dir )
+
+    images, pred, masks = predict( flag )
+
+    outputName = 'metrics_table.csv'
+    outputPath = os.path.join( flag.output_predict_dir, outputName  )
+    flag.region_list = ["bg"] + flag.region_list
+    saveClassificationMetrics( pred, masks, flag.region_list, outputPath )
+
+    nImages = images.shape[0]
+    for i in range( nImages ):
+        img = images[i,...]
+        mask = pred[i,...]
+        mask_ref = masks[i,...]
+
+        outputName = 'pred_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        makeOverlay( img, mask, outputPath )
+
+        outputName = 'img_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        saveImage( img, outputPath )
+
+        outputName = 'img-raw_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        saveImageRaw( img, outputPath )
+
+        outputName = 'manual_mask_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        saveLabelImage( mask_ref, outputPath )        
+
+        outputName = 'pred_mask_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        saveLabelImage( mask, outputPath )        
+
+        outputName = 'manual_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        makeOverlay( img, mask_ref, outputPath )
+
+        outputName = 'difference_%d.png' % ( i )
+        outputPath = os.path.join( flag.output_predict_dir, outputName  )
+        makeOverlayMaskDifference( img, mask_ref, mask, outputPath )
 
 
 def makeDirs( flag ):

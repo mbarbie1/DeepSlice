@@ -42,18 +42,71 @@ def plotMetric( history, plotVar, parameterString, output_dir ):
     plt.ylabel(plotVar)
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
-    #plt.show()
     plt.savefig( os.path.join( output_dir, "Plot_" + plotVar + "_" + parameterString + "_" + '.png' ) )
+
+def saveMetric( history, plotVar, parameterString, output_dir ):
+    plt.ioff()
+    fig = plt.figure()
+    plt.plot(history.history[plotVar])
+    plt.plot(history.history['val_' + plotVar])
+    plt.title('Model ' + plotVar)
+    plt.ylabel(plotVar)
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.savefig( os.path.join( output_dir, "Plot_" + plotVar + "_" + parameterString + "_" + '.png' ) )
+    plt.close(fig)
 
 # summarize history for accuracy
 def showTrainingHistory( flag, history, plotVarList):
     parameterString = getParameterString( history )
     plotVar = getMetrics( history )
     for plotVar in plotVarList:
-        plotMetric( history, plotVar, parameterString, flag.output_plots_dir )
+        if flag.show_metrics:
+            plotMetric( history, plotVar, parameterString, flag.output_plots_dir )
+        else:
+            saveMetric( history, plotVar, parameterString, flag.output_plots_dir )
 
 from module_utilities import removeFolderContents
 from keras.preprocessing.image import ImageDataGenerator
+
+def dataAugmentationPrimitive( flag, images, masks ):
+
+    print('-'*30)
+    print('Data augmentation by simple transformations up front instead of on the fly, this is for testing, also not completely correct since now the validation set will contain simple transformed images of the training set')
+    print('-'*30)
+
+    if flag.primitive_augmentation == "rotation_1":
+
+        rot90Images = np.rot90( images, k=1, axes=(1, 2) )
+        newImages = np.concatenate( ( images, rot90Images ) )
+
+        rot90Masks = np.rot90( masks, k=1, axes=(1, 2) )
+        newMasks = np.concatenate( ( masks, rot90Masks ) )
+
+    elif flag.primitive_augmentation == "rotation_2":
+
+        rot90Images = np.rot90( images, k=1, axes=(1, 2) )
+        rot180Images = np.rot90( images, k=2, axes=(1, 2) )
+        newImages = np.concatenate( ( images, rot90Images, rot180Images ) )
+    
+        rot90Masks = np.rot90( masks, k=1, axes=(1, 2) )
+        rot180Masks = np.rot90( masks, k=2, axes=(1, 2) )
+        newMasks = np.concatenate( ( masks, rot90Masks, rot180Masks ) )
+
+    elif flag.primitive_augmentation == "rotation_3":
+
+        rot90Images = np.rot90( images, k=1, axes=(1, 2) )
+        rot180Images = np.rot90( images, k=2, axes=(1, 2) )
+        rot270Images = np.rot90( images, k=3, axes=(1, 2) )
+        newImages = np.concatenate( ( images, rot90Images, rot180Images, rot270Images ) )
+    
+        rot90Masks = np.rot90( masks, k=1, axes=(1, 2) )
+        rot180Masks = np.rot90( masks, k=2, axes=(1, 2) )
+        rot270Masks = np.rot90( masks, k=3, axes=(1, 2) )
+        newMasks = np.concatenate( ( masks, rot90Masks, rot180Masks, rot270Masks ) )
+
+    return newImages, newMasks
+
 
 def train_generator( image_generator, mask_generator ):
         while True:
@@ -129,6 +182,8 @@ def splitDataSet( data, ratio ):
 
 def train( flag ):
     
+    K.clear_session()
+    
     img_rows = flag.image_size
     img_cols = flag.image_size
     n_epochs = flag.epochs
@@ -169,6 +224,18 @@ def train( flag ):
         temp = temp.reshape((nImages,img_rows * img_cols))
         masks_reshape[:,:,regionIndex+1] = temp
     
+    if len(flag.primitive_augmentation) > 0:
+        print('-'*30)
+        print('Primitive data augmentation for testing: ' + flag.primitive_augmentation)
+        print('-'*30)
+        images, masks = dataAugmentationPrimitive( flag, images, masks )
+        s = masks.shape
+        nImages = s[0]
+    else:
+        print('-'*30)
+        print('No primitive data augmentation used')
+        print('-'*30)
+        
 
     print('-'*30)
     print('Save masks as images')
@@ -213,7 +280,7 @@ def train( flag ):
     show_pred_masks = trainCheck(flag)
     if flag.data_augmentation:
         #steps_per_epoch = len(train_generator) / flag.batch_size
-        steps_per_epoch = 10
+        steps_per_epoch = 20
         images, imagesValidation = splitDataSet( images, 0.8 )
         masks, masksValidation = splitDataSet( masks, 0.8)
         train_generator = dataAugmentation( flag, images, masks )
