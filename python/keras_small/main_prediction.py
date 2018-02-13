@@ -52,13 +52,13 @@ def init():
     parser.add_argument("--activation", help="Activation function of the output layer [sigmoid,softmax]", default="sigmoid" )
 
     parser.add_argument("--output_dir", help="output directory", default="./output" )
-    parser.add_argument("--output_predict_subdir", help="output directory", default="peter_predictions" )
+    parser.add_argument("--output_predict_subdir", help="output directory", default="predictions_masked" )
 
     flag = parser.parse_args()
     
     folder_model_weights = "/home/mbarbier/Documents/prog/DeepSlice/python/keras_small/output/Models_Weights"
-    file_model_weights = "peter_unet_adam_categorical_crossentropy_epochs-2_batch-size-32_image-size-192_lr-1e-05_data-augm-0_prim-augm-.h5"
-    #file_model_weights = "augm_small_unet_adam_categorical_crossentropy_epochs-500_batch-size-32_image-size-192_lr-1e-05_data-augm-0_prim-augm-rotation_3.h5"
+    #file_model_weights = "peter_unet_adam_categorical_crossentropy_epochs-2_batch-size-32_image-size-192_lr-1e-05_data-augm-0_prim-augm-.h5"
+    file_model_weights = "augm_small_unet_adam_categorical_crossentropy_epochs-500_batch-size-32_image-size-192_lr-1e-05_data-augm-0_prim-augm-rotation_3.h5"
     flag.load_model_weights_file = os.path.join( folder_model_weights, file_model_weights )
 
     folder_weights = "/home/mbarbier/Documents/prog/DeepSlice/python/keras_small/output/Weights"
@@ -83,6 +83,20 @@ def toMultiLabelMask( masks_all, nClasses, regionList, img_rows, img_cols ):
         masks[:,:,:,0] = (1 - temp) * masks[:,:,:,0]
 
     return masks
+
+def probabilityToMask( prob ):
+    """
+    The prediction from the netwerk is a probability vector for each pixel, we 
+    need it to be a binary vector for each pixel
+    """
+
+    masks = np.zeros(prob.shape)
+    indexMatrix = np.argmax( prob, axis = -1 )
+    for i in range(masks.shape[-1]):
+        masks[ indexMatrix == i, i] = 1
+
+    return masks
+
 
 
 def predict( flag ):
@@ -118,6 +132,8 @@ def predict( flag ):
 
     pred = model.predict( images, batch_size=flag.batch_size, verbose=0, steps=None)
     
+    pred = probabilityToMask( pred )
+
     return images, pred, masks
 
 def saveLabelImage( mask, output_path ):
