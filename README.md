@@ -6,6 +6,7 @@ Trial project to use deep learning for fluorescent brain slice region segmentati
 ![prediction](https://github.com/mbarbie1/DeepSlice/blob/master/python/keras_small/data/example_prediction/pred_0.png)
 ![manual segmentation](https://github.com/mbarbie1/DeepSlice/blob/master/python/keras_small/data/example_prediction/manual_0.png)
 ![difference](https://github.com/mbarbie1/DeepSlice/blob/master/python/keras_small/data/example_prediction/difference_0.png)
+
 *Figure: from left to right: Sample, prediction, manual segmentation, difference image (blue is wrongly labeled)*
 
 *Word of warning* for those who bump into this repo: Since this is a test project, documentation of both the code and the project itself is limited, or uhm, let's say "non-existant" :-).
