@@ -85,7 +85,7 @@ def run( flag ):
     pas = [""] #["rotation_1", "rotation_2", "rotation_3"]
 
     # Number of epochs to train for:
-    flag.epochs = 5
+    flag.epochs = 2
 
     # File to load pre-computed weights from (if commented no pre-computed weights are used)
     flag.load_weights_file = "/home/mbarbier/Documents/prog/DeepSlice/python/keras_small/output/Weights/save_unet_adam_categorical_crossentropy_epochs-1200_batch-size-18_image-size-192_lr-1e-05_data-augm-0.h5"

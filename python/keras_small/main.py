@@ -62,6 +62,7 @@ parser.add_argument("--extended_region_list", help="List of ROIs", default=exten
 parser.add_argument("--image_format", help="Format of input and output images", default=imageFormat )
 parser.add_argument("--show_metrics", help="Whether the computed metrics through training are shown (otherwise they are saved in the output plots subdirectory), 1 means also show, 0 means only save plot [1,0]", default=0, type=int )
 parser.add_argument("--run_id_prefix", help="Prefix of the run_id which will determine the naming of the output folders and files", default="peter" )
+parser.add_argument("--output_predict_subdir", help="output directory", default="predictions" )
 parser.add_argument("--run_function", help="What to run? Training, loop training, prediction, both? [train,predict]", default="peter" )
 
 
